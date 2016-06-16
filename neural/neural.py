@@ -9,7 +9,7 @@ from collections import OrderedDict
 class NeuralAlgorithm(object):
     
     NUM_HIDDEN_LAYERS = 2
-    NUM_NEURONS_PER_LAYER = 4
+    NUM_NEURONS_PER_LAYER = 6
     NUM_INPUTS = 6
     NUM_OUTPUTS = 4
     ACTIVATION_RESPONSE = 1.0
@@ -17,7 +17,7 @@ class NeuralAlgorithm(object):
     NUM_CONNECTIONS = NUM_INPUTS*NUM_NEURONS_PER_LAYER + \
                                        (NUM_HIDDEN_LAYERS-1)*NUM_NEURONS_PER_LAYER**2 + \
                                         NUM_NEURONS_PER_LAYER*NUM_OUTPUTS
-    SIGMA_INITIAL_WEIGHTS = 5.0
+    SIGMA_INITIAL_WEIGHTS = 1.0
     SIGMA_INITIAL_THRESHOLD = 1.0
 
     def generate_network(self):
@@ -59,9 +59,10 @@ class NeuralAlgorithm(object):
 
 class GeneticAlgorithm(object):
     SIGMA_MUTATION = 1.0
-    POPULATION_SIZE = 300
+    POPULATION_SIZE = 150
     MUTATION_RATE = 0.1
     CROSSOVER_RATE = 0.7
+    WILDCARD_RATE = 0.01
 
     def __init__(self):
         self.neural = NeuralAlgorithm()
@@ -92,6 +93,8 @@ class GeneticAlgorithm(object):
                 next_generation.append(self.mutate(self.population[0][self.weighted_choice(self.population[1])]))
             elif next_selection <= self.CROSSOVER_RATE + self.MUTATION_RATE:
                 next_generation.append(self.crossover(self.population[0][self.weighted_choice(self.population[1])], self.population[0][self.weighted_choice(self.population[1])]))
+            elif next_selection <= self.CROSSOVER_RATE + self.MUTATION_RATE + self.WILDCARD_RATE:
+                next_generation.append(self.neural.generate_network())
             else:
                 # copy an individual
                 next_generation.append(self.population[0][self.weighted_choice(self.population[1])])
@@ -127,7 +130,7 @@ class GeneticAlgorithm(object):
     def mutate(self, individual):
         new_individual = individual
         position = random.randint(0, NeuralAlgorithm.NUM_CONNECTIONS)
-        new_individual[position] = np.random.normal(GeneticAlgorithm.SIGMA_MUTATION)
+        new_individual[position] = np.random.normal(NeuralAlgorithm.SIGMA_INITIAL_WEIGHTS)
         return new_individual
 
     def crossover(self, individual_1, individual_2):
