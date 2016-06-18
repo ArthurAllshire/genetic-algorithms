@@ -116,6 +116,20 @@ class Game(object):
         self.player.set_pos()
         self.all_sprites_list.add(self.player)
 
+    def reset(self):
+        self.player.set_pos()
+
+        for p in self.projectile_list.sprites():
+            p.set_pos()
+        self.score = 0
+        self.game_over = False
+        self.time_since_last_tick = 0
+        self.score_clock.tick()
+
+        # set the time scince the lat projectile switch to 0
+        self.time_scince_last_direction_switch = 0
+        self.projectile_direction_clock.tick()
+
     def get_keys(self):
         return pygame.key.get_pressed()
 
@@ -176,17 +190,23 @@ class Game(object):
 
         self.player.update_movement(self.player_x_movement, self.player_y_movement)
 
+    def score_clock_tick(self):
+        return self.score_clock.tick()
+
+    def projectile_direction_tick(self):
+        return self.projectile_direction_clock.tick()
+
     def logic(self):
         """ Checks if the player has collided with the objects,
         if he/she has, set game_over to True. Also updates the player's move_x
         and move_y attributes through player.update_movement(). """
 
-        self.time_since_last_tick += self.score_clock.tick()
+        self.time_since_last_tick += self.score_clock_tick()
         if self.time_since_last_tick >= self.time_to_score_update:
             self.score += 1
             self.time_since_last_tick = 0
 
-        self.time_scince_last_direction_switch += self.projectile_direction_clock.tick()
+        self.time_scince_last_direction_switch += self.projectile_direction_tick()
         if self.time_scince_last_direction_switch >= self.time_between_direction_switches:
             self.time_scince_last_direction_switch = 0
             #for projectile in self.projectile_list:
