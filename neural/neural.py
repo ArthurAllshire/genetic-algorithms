@@ -9,9 +9,9 @@ from collections import OrderedDict
 class NeuralAlgorithm(object):
     
     NUM_HIDDEN_LAYERS = 1
-    NUM_NEURONS_PER_LAYER = 4
-    NUM_INPUTS = 4
-    NUM_OUTPUTS = 2
+    NUM_NEURONS_PER_LAYER = 10
+    NUM_INPUTS = 6
+    NUM_OUTPUTS = 4
     ACTIVATION_RESPONSE = 1.0
     BIAS = -1.0
     NUM_CONNECTIONS = NUM_INPUTS*NUM_NEURONS_PER_LAYER + \
@@ -23,10 +23,10 @@ class NeuralAlgorithm(object):
     def generate_network(self):
         weights = []
         for x in range(NeuralAlgorithm.NUM_CONNECTIONS):
-            #weights.append(random.uniform(-self.SIGMA_INITIAL_WEIGHTS, self.SIGMA_INITIAL_WEIGHTS))
-            weights.append(np.random.normal(loc=0, scale=NeuralAlgorithm.SIGMA_INITIAL_WEIGHTS))
-        weights.append(np.random.normal(loc=0, scale=NeuralAlgorithm.SIGMA_INITIAL_THRESHOLD))
-        #weights.append(random.uniform(-self.SIGMA_INITIAL_THRESHOLD, self.SIGMA_INITIAL_THRESHOLD))
+            weights.append(random.uniform(-self.SIGMA_INITIAL_WEIGHTS, self.SIGMA_INITIAL_WEIGHTS))
+            #weights.append(np.random.normal(loc=0, scale=NeuralAlgorithm.SIGMA_INITIAL_WEIGHTS))
+        #weights.append(np.random.normal(loc=0, scale=NeuralAlgorithm.SIGMA_INITIAL_THRESHOLD))
+        weights.append(random.uniform(-self.SIGMA_INITIAL_THRESHOLD, self.SIGMA_INITIAL_THRESHOLD))
         return weights
 
     def evaluate_network(self, weights, inputs):
@@ -82,7 +82,7 @@ class GeneticAlgorithm(object):
             print "Generation: %s Average Fitness %s Fittest Individual: %s" % (generation, int(np.mean(self.population[1])), fittest)
             self.evolve_population()
             fittest = self.population[1][np.argmax(self.population[1])]
-            if fittest > 700:
+            if fittest > 280:
                 print self.population[0][np.argmax(self.population[1])]
             generation += 1
         print "Solution Found, Fitness: %s , Weights:" % (fittest)
@@ -123,6 +123,8 @@ class GeneticAlgorithm(object):
         self.population = [population, fitnesses]
 
     def weighted_choice(self, weights):
+        if sum(weights) == 0.0:
+            return random.randint(0, len(weights)-1)
         totals = []
         running_total = 0
 
@@ -165,7 +167,7 @@ class GeneticAlgorithm(object):
             sims.append(self.sim.run_simulation(individual, self.game))
         # different sims of the same network can vary a lot due to random chance
         # so to improve the mean, reject outliars
-        sims = self.reject_outliers(sims)
+        #sims = self.reject_outliers(sims)
         return np.mean(sims)
 
 class CollisionGameSimulator(object):
@@ -228,11 +230,18 @@ class CollisionGameSimulator(object):
         ticks = 0
         total_movement = 0
         total_possible = math.sqrt(2*(game.player_speed**2))
+        last_keys = {}
+        direction_switches = 0
 
         while ticks < CollisionGameSimulator.DESIRED_TICKS and not game.game_over:
             # process events eg keystrokes etc.
-            x_move, y_move = self.process_network_inputs(individual, game)
-            total_movement += math.sqrt(x_move**2 + y_move**2)
+            #x_move, y_move =
+            #total_movement += math.sqrt(x_move**2 + y_move**2)
+            keys = self.process_network_inputs(individual, game)
+            if keys != last_keys:
+                direction_switches += 1
+            last_keys = keys
+
 
             # run the game logic and check for collisions
             game.logic()
@@ -241,11 +250,14 @@ class CollisionGameSimulator(object):
 
             ticks += 1
             #fps_clock.tick(40)
-        total_possible *= ticks
+        """total_possible *= ticks
         if ticks < 400:
             return ticks*(total_movement/total_possible)
+        else:"""
+        if direction_switches > 1:
+            return ticks * 2
         else:
-            return ticks
+            return ticks / 2
 
 
     def generate_inputs(self, game):
@@ -266,27 +278,26 @@ class CollisionGameSimulator(object):
         if game.player.rect.centery >= collisiongame.WINDOW_HEIGHT/2:
             closest_edge_y = collisiongame.WINDOW_HEIGHT-game.player.rect.centery
         return [closest_edge_x/collisiongame.WINDOW_WIDTH, closest_edge_y/collisiongame.WINDOW_HEIGHT,
-                x_dist_1/collisiongame.WINDOW_WIDTH, y_dist_1/collisiongame.WINDOW_HEIGHT]
-                #x_dist_2/collisiongame.WINDOW_WIDTH, y_dist_2/collisiongame.WINDOW_HEIGHT]
+                x_dist_1/collisiongame.WINDOW_WIDTH, y_dist_1/collisiongame.WINDOW_HEIGHT,
+                x_dist_2/collisiongame.WINDOW_WIDTH, y_dist_2/collisiongame.WINDOW_HEIGHT]
 
 
     def get_keys(self, outputs):
         keys = OrderedDict([["K_UP",False], ["K_DOWN",False], ["K_LEFT",False], ["K_RIGHT",False]])
         for x in range(len(outputs)):
             outputs[x] = abs(outputs[x])
-        ind = np.sort(np.argpartition(np.asarray(outputs), -2)[-2:])
-        max_index = ind[0]
-        second_max_index = ind[1]
+        #ind = np.sort(np.argpartition(np.asarray(outputs), -2)[-2:])
+        max_index = np.argmax(outputs)
         keys[CollisionGameSimulator.output_order[max_index//2][max_index%2]] = True
-        if outputs[second_max_index] >= outputs[max_index]/2 and not keys.keys()[second_max_index] in CollisionGameSimulator.output_order[max_index//2]:
-            keys[CollisionGameSimulator.output_order[second_max_index//2][second_max_index%2]] = True
+        #if outputs[second_max_index] >= outputs[max_index]/2 and not keys.keys()[second_max_index] in CollisionGameSimulator.output_order[max_index//2]:
+        #    keys[CollisionGameSimulator.output_order[second_max_index//2][second_max_index%2]] = True
         #print "Outputs: %s\nKeys: %s" % (outputs, keys)
         return keys
 
     def process_network_inputs(self, individual, game):
-        #keys = self.get_keys(self.neural.evaluate_network(individual, self.generate_inputs(game)))
+        keys = self.get_keys(self.neural.evaluate_network(individual, self.generate_inputs(game)))
 
-        """game.player_x_movement, game.player_y_movement = game.player.get_movement()
+        game.player_x_movement, game.player_y_movement = game.player.get_movement()
 
         if keys["K_UP"]:
             game.player_y_movement = -game.player_speed
@@ -329,8 +340,8 @@ class CollisionGameSimulator(object):
             else:
                 game.player_y_movement = 0
 
-        game.player.update_movement(game.player_x_movement, game.player_y_movement)"""
-        [x, y] = self.neural.evaluate_network(individual, self.generate_inputs(game))
+        game.player.update_movement(game.player_x_movement, game.player_y_movement)
+        """[x, y] = self.neural.evaluate_network(individual, self.generate_inputs(game))
         if x > Game.player_speed:
             x = Game.player_speed
         elif x < -Game.player_speed:
@@ -342,7 +353,7 @@ class CollisionGameSimulator(object):
         game.player_x_movement = x
         game.player_y_movement = y
         game.player.update_movement(x, y)
-        return x, y
+        return x, y"""
 
 if __name__ == "__main__":
     g = GeneticAlgorithm()
