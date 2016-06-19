@@ -8,8 +8,8 @@ from collections import OrderedDict
 
 class NeuralAlgorithm(object):
     
-    NUM_HIDDEN_LAYERS = 2
-    NUM_NEURONS_PER_LAYER = 10
+    NUM_HIDDEN_LAYERS = 1
+    NUM_NEURONS_PER_LAYER = 8
     NUM_INPUTS = 8
     NUM_OUTPUTS = 4
     ACTIVATION_RESPONSE = 1.0
