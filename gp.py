@@ -112,7 +112,6 @@ class Run():
                 self.population = self.next_generation(self.population)
             generations += 1
         print(self.evaluate_tree(solution[0][0]))
-        print("Solution Found!: " + solution[0][0])
 
     def next_generation(self, generation):
         number = random.uniform(0.0, 1.0)

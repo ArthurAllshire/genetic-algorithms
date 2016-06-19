@@ -17,7 +17,7 @@ current_distance_to_target: 11011 - 27
 """
 
 DESIRED_NUMBER = 59
-POPULATION_SIZE = 1000
+POPULATION_SIZE = 10000
 CHROM_SIZE = 20 # genes
 GENE_SIZE = 5 # bits
 CROSSOVER_RATE = 0.7

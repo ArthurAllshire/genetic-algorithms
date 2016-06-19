@@ -8,9 +8,9 @@ from collections import OrderedDict
 
 class NeuralAlgorithm(object):
     
-    NUM_HIDDEN_LAYERS = 1
+    NUM_HIDDEN_LAYERS = 2
     NUM_NEURONS_PER_LAYER = 10
-    NUM_INPUTS = 6
+    NUM_INPUTS = 8
     NUM_OUTPUTS = 4
     ACTIVATION_RESPONSE = 1.0
     BIAS = -1.0
@@ -271,6 +271,10 @@ class CollisionGameSimulator(object):
         closest_sprite_2 = sprites.pop(closest)
         [dist_2, x_dist_2, y_dist_2] = closest_sprite_2.get_dist(game.player)
         distances.pop(closest)
+        closest = np.argmin(distances)
+        closest_sprite_3 = sprites.pop(closest)
+        [dist_3, x_dist_3, y_dist_3] = closest_sprite_3.get_dist(game.player)
+        distances.pop(closest)
         closest_edge_x = -game.player.rect.centerx
         if game.player.rect.centerx >= collisiongame.WINDOW_WIDTH/2:
             closest_edge_x = collisiongame.WINDOW_WIDTH-game.player.rect.centerx
@@ -279,18 +283,21 @@ class CollisionGameSimulator(object):
             closest_edge_y = collisiongame.WINDOW_HEIGHT-game.player.rect.centery
         return [closest_edge_x/collisiongame.WINDOW_WIDTH, closest_edge_y/collisiongame.WINDOW_HEIGHT,
                 x_dist_1/collisiongame.WINDOW_WIDTH, y_dist_1/collisiongame.WINDOW_HEIGHT,
-                x_dist_2/collisiongame.WINDOW_WIDTH, y_dist_2/collisiongame.WINDOW_HEIGHT]
+                x_dist_2/collisiongame.WINDOW_WIDTH, y_dist_2/collisiongame.WINDOW_HEIGHT,
+                x_dist_3/collisiongame.WINDOW_WIDTH, y_dist_3/collisiongame.WINDOW_HEIGHT]
 
 
     def get_keys(self, outputs):
         keys = OrderedDict([["K_UP",False], ["K_DOWN",False], ["K_LEFT",False], ["K_RIGHT",False]])
         for x in range(len(outputs)):
             outputs[x] = abs(outputs[x])
-        #ind = np.sort(np.argpartition(np.asarray(outputs), -2)[-2:])
-        max_index = np.argmax(outputs)
+        ind = np.sort(np.argpartition(np.asarray(outputs), -2)[-2:])
+        #max_index = np.argmax(outputs)
+        max_index = ind[0]
+        second_max_index = ind[1]
         keys[CollisionGameSimulator.output_order[max_index//2][max_index%2]] = True
-        #if outputs[second_max_index] >= outputs[max_index]/2 and not keys.keys()[second_max_index] in CollisionGameSimulator.output_order[max_index//2]:
-        #    keys[CollisionGameSimulator.output_order[second_max_index//2][second_max_index%2]] = True
+        if outputs[second_max_index] >= (outputs[max_index]/10)*9 and not keys.keys()[second_max_index] in CollisionGameSimulator.output_order[max_index//2]:
+            keys[CollisionGameSimulator.output_order[second_max_index//2][second_max_index%2]] = True
         #print "Outputs: %s\nKeys: %s" % (outputs, keys)
         return keys
 
