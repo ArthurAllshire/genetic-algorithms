@@ -98,6 +98,8 @@ class Game(object):
         # Create sprite list as pygame.sprite.Group() objects
         self.projectile_list = pygame.sprite.Group()
         self.all_sprites_list = pygame.sprite.Group()
+        self.player = Player(self.width, self.height, self.player_speed)
+        self.player.set_pos()
 
         # Generate the list of projectiles
         for i in range(NUMBER_OF_PROJECTILES):
@@ -105,6 +107,8 @@ class Game(object):
             projectile = Projectile(color, self.width, self.height)
 
             projectile.set_pos()
+            while projectile.get_dist(self.player)[0] < 70:
+                projectile.set_pos()
 
             self.projectile_list.add(projectile)
             self.all_sprites_list.add(projectile)
@@ -112,8 +116,6 @@ class Game(object):
         self.player_x_movement = self.player_speed
         self.player_y_movement = 0
         # Create the player
-        self.player = Player(self.width, self.height, self.player_speed)
-        self.player.set_pos()
         self.all_sprites_list.add(self.player)
 
     def reset(self):
@@ -121,6 +123,8 @@ class Game(object):
 
         for p in self.projectile_list.sprites():
             p.set_pos()
+            while p.get_dist(self.player)[0] < 70:
+                p.set_pos()
         self.score = 0
         self.game_over = False
         self.time_since_last_tick = 0

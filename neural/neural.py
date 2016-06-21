@@ -8,8 +8,8 @@ from collections import OrderedDict
 
 class NeuralAlgorithm(object):
     
-    NUM_HIDDEN_LAYERS = 1
-    NUM_NEURONS_PER_LAYER = 8
+    NUM_HIDDEN_LAYERS = 2
+    NUM_NEURONS_PER_LAYER = 10
     NUM_INPUTS = 8
     NUM_OUTPUTS = 4
     ACTIVATION_RESPONSE = 1.0
@@ -250,6 +250,12 @@ class CollisionGameSimulator(object):
 
             ticks += 1
             #fps_clock.tick(40)
+        #determine if the player died on the edge
+        if game.player.rect.top <= 0 or \
+            game.player.rect.bottom >= collisiongame.WINDOW_HEIGHT or \
+            game.player.rect.left <= 0 or \
+            game.player.rect.right >= collisiongame.WINDOW_WIDTH:
+            ticks /= 2
         """total_possible *= ticks
         if ticks < 400:
             return ticks*(total_movement/total_possible)
