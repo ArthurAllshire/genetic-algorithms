@@ -1,72 +1,57 @@
-from copy import deepcopy
-import math, random
+import time
+import math
+import pygame
+import random
+import argparse
+from collections import OrderedDict
+import pickle
+
 import numpy as np
+
 import collisiongame
 from collisiongame import Game
-import pygame
-from collections import OrderedDict
+
 
 class NeuralAlgorithm(object):
     """Class that holds parameters for the neural network and has the functions required to use them"""
-    NUM_HIDDEN_LAYERS = 3
-    NUM_NEURONS_PER_LAYER = 8
-    NUM_INPUTS = 8
-    NUM_OUTPUTS = 4
-    ACTIVATION_RESPONSE = 1.0
-    BIAS = -1.0
-    # the number of individual connections in the network
-    NUM_CONNECTIONS = NUM_INPUTS*NUM_NEURONS_PER_LAYER + \
-                                       (NUM_HIDDEN_LAYERS-1)*NUM_NEURONS_PER_LAYER**2 + \
-                                        NUM_NEURONS_PER_LAYER*NUM_OUTPUTS
-    INITIAL_WEIGHTS_RANGE = 1.5
-    INITIAL_THRESHOLD_RANGE = 0.5
+    sizes = [10, 10, 10, 4]
 
     def generate_network(self):
-        """Generate a random network, with the initial values having a uniform distribution with given min and max values"""
-        weights = []
-        for x in range(NeuralAlgorithm.NUM_CONNECTIONS):
-            weights.append(random.uniform(-self.INITIAL_WEIGHTS_RANGE, self.INITIAL_THRESHOLD_RANGE))
-        weights.append(random.uniform(-self.INITIAL_THRESHOLD_RANGE, self.INITIAL_THRESHOLD_RANGE))
-        return weights
+        w = [np.random.randn(y, x)
+                        for x, y in zip(self.sizes[:-1], self.sizes[1:])]
+        b = [np.random.randn(y) for y in self.sizes[1:]]
+        return [b, w]
 
-    def evaluate_network(self, weights, inputs):
-        previous_layer = inputs
-        # variable to hold where this layer starts in the long list of weights
-        weight_layer_starting_index = 0
-        # for each layer that we have to generate
-        for x in range(NeuralAlgorithm.NUM_HIDDEN_LAYERS + 1):
-            # set the next layer length (just the hidden layer length if we are not generating the output layer)
-            next_layer_length = self.NUM_OUTPUTS if x == NeuralAlgorithm.NUM_HIDDEN_LAYERS else NeuralAlgorithm.NUM_NEURONS_PER_LAYER
-            next_layer = []
-            # for each neuron in the next layer
-            for n in range(next_layer_length):
-                neuron = 0
-                # for each neuron in the previous layer's output and its weight going to this neuron
-                for value, weight in zip(previous_layer, range(n*len(previous_layer), len(previous_layer)*(n+1))):
-                    # add the weighted input to the total for this neuron
-                    neuron += value * weights[weight+weight_layer_starting_index]
-                #add in the bias
-                neuron += NeuralAlgorithm.BIAS * weights[-1]
-                #add the neuron to the next layer, after passing the sum through the sigmoid function
-                next_layer.append(self.sigmoid(neuron))
-            # update the starting index of the next layer
-            weight_layer_starting_index += next_layer_length*len(previous_layer)
-            previous_layer = next_layer
-        return previous_layer
+    def evaluate_network(self, indiv,inputs):
+        biases = indiv[0]
+        weights = indiv[1]
+        for b, w in zip(biases, weights):
+            inputs = self.activation_fuction(np.dot(w, inputs)+b)
+        return inputs
 
-    def sigmoid(self, number):
-        """Sigmoid function, used to scale the output of each neuron so it starts to activate at certain values (https://en.wikipedia.org/wiki/Sigmoid_function)"""
-        return 1/(1+math.exp(-number/NeuralAlgorithm.ACTIVATION_RESPONSE))
+    def activation_fuction(self, z):
+        #return 1.0 / (1.0 + np.exp(-z))
+        return np.tanh(z)
+
 
 class GeneticAlgorithm(object):
     SIGMA_MUTATION = 1.5
-    POPULATION_SIZE = 100
-    MUTATION_RATE = 0.1
-    CROSSOVER_RATE = 0.7
+    # maybe lower to 50
+    POPULATION_SIZE = 50
+    MUTATION_RATE = 0.4
+    CROSSOVER_RATE = 0.4
     WILDCARD_RATE = 0.00
-    ELITE = 4
+    #maybe 2 or 3
+    TRIAL_NUMBER = 2
 
-    def __init__(self):
+    def __init__(self, threshold=None):
+        self.threshold=[False, None]
+        if threshold:
+            self.threshold = threshold
+            try:
+                self.threshold[1] = int(self.threshold[1])
+            except:
+                self.threshold = [False, None]
         self.neural = NeuralAlgorithm()
         self.sim = CollisionGameSimulator(self.neural)
         self.game = Game()
@@ -75,6 +60,7 @@ class GeneticAlgorithm(object):
         self.game.projectile_direction_tick = lambda: 1000/collisiongame.FPS
 
     def run_program(self):
+        self.start_time = time.time()
         # initialise pygame
         pygame.init()
         # generate the starting population
@@ -82,29 +68,28 @@ class GeneticAlgorithm(object):
         generation = 0
         # variable to hold the individual that is fittest in the current generation
         fittest = self.population[1][np.argmax(self.population[1])]
-        while CollisionGameSimulator.DESIRED_TICKS:
+        while True:
             print "Generation: %s Average Fitness %s Fittest Individual: %s" % (generation, int(np.mean(self.population[1])), fittest)
             # generate the next generation of individuals
             self.evolve_population()
             fittest = self.population[1][np.argmax(self.population[1])]
             # if above a certain threshold, print out the chromosome
-            if fittest > 280:
-                print self.population[0][np.argmax(self.population[1])]
+            if self.threshold[0]:
+                if fittest > self.threshold[1]:
+                    metadata= {"sizes":self.neural.sizes, "mutation":self.MUTATION_RATE,
+                               "crossover":self.CROSSOVER_RATE, "seconds_elapsed":int(time.time()-self.start_time),
+                               "wildcard":self.WILDCARD_RATE, "population_size":self.POPULATION_SIZE, "generations":generation,
+                    "time":time.time(), "fitness":fittest, "desired_fitness":self.threshold[1]}
+                    individual =  self.population[0][np.argmax(self.population[1])]
+                    with open("networks/"+str(int(time.time())), "w") as f:
+                        pickle.dump([metadata, individual], f)
+                    print "Solution found with fitness %s" % (fittest)
+                    break
             generation += 1
-        print "Solution Found, Fitness: %s , Weights:" % (fittest)
-        print self.population[0][np.argmax(self.population[1])]
-        # save the solution in a file
-        f = open('solution.txt', 'r+')
-        f.truncate()
-        f.write(str(self.population[0][np.argmax(self.population[1])]))
-        f.close()
 
     def evolve_population(self):
         """Evolve the population based on simple genetic operators"""
-        # start the next generation with a given number of "elite" individuals - the
-        # fittest few of the population from the last generation, to ensure that we
-        # do not lose an unusually good crossover or combination
-        next_generation = [i[1] for i in sorted(zip(self.population[1], self.population[0]))[:self.ELITE]]
+        next_generation = []
         while len(next_generation) < self.POPULATION_SIZE:
             # generate a random number to determine what genetic operator to use, and then apply it
             # in order to generate a new individual for the next generation
@@ -157,40 +142,63 @@ class GeneticAlgorithm(object):
                 return i
 
     def mutate(self, individual):
-        """Mutate a random weight in a given network by choosing a new value in a gaussian distribution around the initial value"""
-        new_individual = individual
-        position = random.randint(0, NeuralAlgorithm.NUM_CONNECTIONS)
-        new_individual[position] = np.random.normal(scale=GeneticAlgorithm.SIGMA_MUTATION, loc=0)
-        return new_individual
+        """Mutate a random neuron in a given network by choosing a new values for weight and bias"""
+        layer = self.weighted_choice(self.neural.sizes[1:])+1
+        neuron = random.randint(0, self.neural.sizes[layer]-1)
+        connection = random.randint(0, self.neural.sizes[layer-1]-1)
+        # mutate the weight
+        individual[1][layer-1][neuron][connection] += np.random.normal()
+        #mutate the bias
+        individual[0][layer-1][neuron] += np.random.normal()
+        return individual
 
     def crossover(self, individual_1, individual_2):
-        """Crossover two individuals at a random point, and return the offspring"""
-        crossover_position = random.randint(1, NeuralAlgorithm.NUM_CONNECTIONS-1)
-        new_individual_1 = individual_1[0:crossover_position] + individual_2[crossover_position:]
-        return new_individual_1
+        layer = self.weighted_choice(self.neural.sizes[1:])+1
+        layer_index = layer - 1
+        neuron = random.randint(0, self.neural.sizes[layer]-1)
+        connection = random.randint(0, self.neural.sizes[layer-1]-1)
+        old_w_1 = individual_1[1]
+        old_w_2 = individual_2[1]
+        new_w_modded_layer = old_w_1[layer_index].tolist()[:neuron]\
+                             + [old_w_1[layer_index][neuron][:connection].tolist() + old_w_2[layer_index][neuron][connection:].tolist()]\
+                             +  old_w_2[layer_index].tolist()[neuron+1:]
+        new_w_modded_layer = np.array(new_w_modded_layer)
+        new_w = old_w_1[:layer_index]+ [new_w_modded_layer] + old_w_2[layer_index+1:]
+        old_b_1 = individual_1[0]
+        old_b_2 = individual_2[0]
+        new_b_modded_layer = [old_b_1[layer_index][:neuron].tolist() + old_b_2[layer_index][neuron:].tolist()]
+        new_b = old_b_1[:layer_index] + new_b_modded_layer + old_b_2[layer_index+1:]
+        new_b[layer_index] = np.array(new_b[layer_index])
+
+        return [new_b, new_w]
 
     def fitness(self, individual):
         sims = []
         # run multiple sims to get an average, as different simulations for the same network
         # can vary greatly as a result of the random nature of the collision game
-        for x in range(10):
+        for x in range(self.TRIAL_NUMBER):
             sims.append(self.sim.run_simulation(individual, self.game))
         return np.mean(sims)
 
 class CollisionGameSimulator(object):
     DESIRED_TICKS = 300
     output_order = [["K_UP", "K_DOWN"], ["K_LEFT", "K_RIGHT"]]
-    NUMBER_CLOSEST_SQUARES = 3
+    NUMBER_CLOSEST_SQUARES = 4
 
     def __init__(self, neural):
         self.neural = neural
         self.game = collisiongame.Game
 
-    def run_ai(self):
+    def run_ai(self, network_time):
         """Run the network with the weights in the file solution.txt"""
-        f = open('solution.txt', 'r')
-        individual = eval(f.read().replace("\n", ""))
         # initialise pygame
+        p = None
+        with open("networks/"+network_time, "rb") as f:
+            p = pickle.load(f)
+
+        print p[0]
+        individual = p[1]
+
         pygame.init()
         # create the window
         screen_dimensions = ((collisiongame.WINDOW_WIDTH, collisiongame.WINDOW_HEIGHT))
@@ -346,5 +354,9 @@ class CollisionGameSimulator(object):
         game.player.update_movement(game.player_x_movement, game.player_y_movement)
 
 if __name__ == "__main__":
-    g = GeneticAlgorithm()
+    parser = argparse.ArgumentParser(description="Run genetic algorithm to learn to play collision game")
+    parser.add_argument('--save', help="Save the resulting network to a file", action="store_true")
+    parser.add_argument('--threshold', help="Set the threshold to save the file at", default=300)
+    args = parser.parse_args()
+    g = GeneticAlgorithm(threshold=[args.save, args.threshold])
     g.run_program()
